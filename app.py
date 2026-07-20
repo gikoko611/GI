@@ -9,8 +9,21 @@ CORS(app)  # Enable CORS for the Cyberpunk frontend
 
 # --- UTILS ---
 
-def get_yt_dlp_options(format_selection):
-    """Configures yt-dlp options based on user preference."""
+def get_yt_dlp_options(format_selection, quality):
+    """Configures yt-dlp options based on user preference with flexible quality selection."""
+    
+    # Quality mapping - fallback to lower quality if requested not available
+    quality_map = {
+        '4k': '2160',
+        '2k': '1440',
+        '1080p': '1080',
+        '720p': '720',
+        '360p': '360'
+    }
+    
+    # Get the height value, default to 720 if not found
+    height = quality_map.get(quality, '720')
+    
     if format_selection == 'mp3':
         return {
             'format': 'bestaudio/best',
@@ -20,10 +33,15 @@ def get_yt_dlp_options(format_selection):
                 'preferredquality': '192',
             }],
             'quiet': True,
+            'no_warnings': True,
         }
+    
+    # For video: try requested quality, fallback to lower if not available
     return {
-        'format': 'bestvideo+bestaudio/best',
+        'format': f'bestvideo[height<={height}]+bestaudio/bestvideo[height<={height}]/best',
         'quiet': True,
+        'no_warnings': True,
+        'ignoreerrors': True,  # Don't crash if format not found
     }
 
 # --- ROUTES ---
@@ -39,31 +57,39 @@ def fetch_info():
     if not url:
         return jsonify({"error": "No URL provided"}), 400
 
-    ydl_opts = {'quiet': True, 'noplaylist': True}
+    ydl_opts = {
+        'quiet': True, 
+        'noplaylist': True,
+        'no_warnings': True,
+    }
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
             
-            # Filter formats to return only useful ones (MP4 and Audio)
-            formats = []
+            # Get available formats
+            formats_available = []
             for f in info.get('formats', []):
-                # We prioritize formats with both audio and video or distinct high quality
-                if f.get('vcodec') != 'none' or f.get('ext') == 'mp3':
-                    formats.append({
-                        'id': f.get('format_id'),
-                        'ext': f.get('ext'),
-                        'resolution': f.get('resolution') or f.get('format_note'),
-                        'filesize': f.get('filesize_approx') or f.get('filesize'),
-                        'url': f.get('url') # Direct source link if needed
-                    })
+                # Get resolution info
+                resolution = f.get('resolution') or f.get('format_note') or 'N/A'
+                height = f.get('height') or 0
+                
+                formats_available.append({
+                    'id': f.get('format_id'),
+                    'ext': f.get('ext'),
+                    'resolution': resolution,
+                    'height': height,
+                    'filesize': f.get('filesize_approx') or f.get('filesize'),
+                    'vcodec': f.get('vcodec') != 'none',
+                    'acodec': f.get('acodec') != 'none',
+                })
 
             return jsonify({
-                "title": info.get('title'),
+                "title": info.get('title', 'Unknown Title'),
                 "thumbnail": info.get('thumbnail'),
                 "duration": info.get('duration'),
-                "uploader": info.get('uploader'),
-                "formats": formats
+                "uploader": info.get('uploader', 'Unknown'),
+                "formats": formats_available
             })
 
     except Exception as e:
@@ -73,70 +99,118 @@ def fetch_info():
 @app.route('/api/download', methods=['GET'])
 def download():
     """
-    Streams the video/audio to the client without saving to local disk.
-    Example: /api/download?url=URL&format=mp4&quality=1080p
+    Streams the video/audio to the client with flexible quality selection.
+    Falls back to lower quality if requested quality is not available.
     """
     video_url = request.args.get('url')
     requested_format = request.args.get('format', 'mp4')
     requested_quality = request.args.get('quality', '1080p')
 
     if not video_url:
-        return "Missing URL", 400
+        return jsonify({"error": "Missing URL"}), 400
 
-    # Map quality keywords to yt-dlp format strings
-    # This logic tries to find the best height match
-    height = re.search(r'\d+', requested_quality)
-    h_val = height.group() if height else "720"
-
-    ydl_opts = {
-        'format': f'bestvideo[height<={h_val}][ext={requested_format}]+bestaudio/best[height<={h_val}]',
-        'quiet': True,
-        'outtmpl': '-', # Stream to stdout
-        'logtostderr': True
+    # Quality mapping with fallback
+    quality_map = {
+        '4k': '2160',
+        '2k': '1440',
+        '1080p': '1080',
+        '720p': '720',
+        '360p': '360'
     }
+    
+    height = quality_map.get(requested_quality, '720')
 
-    if requested_format == 'mp3':
-        ydl_opts['format'] = 'bestaudio/best'
-        ydl_opts['postprocessors'] = [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
-        }]
+    try:
+        # First, try to get the video info to check available formats
+        with yt_dlp.YoutubeDL({'quiet': True, 'no_warnings': True}) as ydl:
+            info = ydl.extract_info(video_url, download=False)
+            
+            # Get available heights from formats
+            available_heights = []
+            for f in info.get('formats', []):
+                h = f.get('height')
+                if h and h > 0:
+                    available_heights.append(h)
+            
+            # If requested height not available, use the closest available lower height
+            if available_heights:
+                available_heights.sort()
+                # Find the closest lower or equal height
+                best_height = None
+                for h in available_heights:
+                    if h <= int(height):
+                        best_height = h
+                    else:
+                        break
+                
+                # If no lower height found, use the minimum available
+                if best_height is None:
+                    best_height = min(available_heights)
+                
+                # Update height to actual available height
+                height = str(best_height)
 
-    def generate():
-        # Using yt-dlp to stream directly to the response
+        # Build format selector with fallback
+        if requested_format == 'mp3':
+            ydl_opts = {
+                'format': 'bestaudio/best',
+                'postprocessors': [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                    'preferredquality': '192',
+                }],
+                'quiet': True,
+                'no_warnings': True,
+            }
+        else:
+            # For video: try requested height, fallback to best available
+            ydl_opts = {
+                'format': f'bestvideo[height<={height}]+bestaudio/bestvideo[height<={height}]/best',
+                'quiet': True,
+                'no_warnings': True,
+                'ignoreerrors': True,
+            }
+
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(video_url, download=False)
+            
+            # Get the actual download URL
+            if 'url' in info:
+                download_url = info['url']
+            else:
+                # Find the best format matching our criteria
+                best_format = None
+                for f in info.get('formats', []):
+                    if requested_format in f.get('ext', ''):
+                        if best_format is None or f.get('height', 0) > best_format.get('height', 0):
+                            best_format = f
+                
+                if best_format:
+                    download_url = best_format.get('url')
+                else:
+                    # Fallback to any available format
+                    download_url = info.get('formats', [{}])[-1].get('url', '')
+
+            if not download_url:
+                return jsonify({"error": "No download URL found"}), 404
+
+            # Get filename
             filename = f"{info.get('title', 'download')}.{requested_format}"
             
-            # Internal function to handle the binary stream
-            # We use a subprocess approach via yt-dlp's dynamic nature
-            # For a simpler implementation, we'll return the direct URL from the fetch
-            # But for true "proxying" (to hide source or bypass geo-blocks):
-            return ydl.download([video_url])
-
-    # To provide a real "Download" experience in the browser, 
-    # we redirect to the direct media URL extracted by yt-dlp 
-    # OR proxy it. For most Web Apps, redirecting to the extracted URL is fastest.
-    
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(video_url, download=False)
-            
-            # Get the best format URL based on user selection
-            download_url = info['url'] if 'url' in info else info['formats'][-1]['url']
-            
-            # This allows the user to download the file with a clean name
-            headers = {
-                "Content-Disposition": f"attachment; filename={info.get('title', 'video')}.{requested_format}"
-            }
-            
-            # Return a redirect or use a request stream to proxy
+            # Stream the file
             import requests
             req = requests.get(download_url, stream=True)
-            return Response(stream_with_context(req.iter_content(chunk_size=1024)), 
-                            content_type=req.headers['content-type'],
-                            headers=headers)
+            
+            # Create response with proper headers
+            response = Response(
+                stream_with_context(req.iter_content(chunk_size=1024)),
+                content_type=req.headers.get('content-type', 'application/octet-stream'),
+                headers={
+                    "Content-Disposition": f"attachment; filename={filename}",
+                    "Cache-Control": "no-cache",
+                }
+            )
+            return response
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
