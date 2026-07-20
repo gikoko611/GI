@@ -243,10 +243,10 @@
             <div class="input-group">
                 <!-- Platform Selector -->
                 <select id="platform-select">
-                    <option value="facebook">📘 Facebook</option>
-                    <option value="instagram">📸 Instagram</option>
-                    <option value="twitter">🐦 Twitter (X)</option>
-                    <option value="tiktok">🎵 TikTok</option>
+                    <option value="facebook"> Facebook</option>
+                    <option value="instagram"> Instagram</option>
+                    <option value="twitter"> Twitter (X)</option>
+                    <option value="tiktok"> TikTok</option>
                 </select>
 
                 <input type="text" id="media-url" class="url-input" placeholder="PASTE MEDIA URL HERE..." autocomplete="off">
@@ -355,7 +355,7 @@
         const dlBtn = document.getElementById('dl-button');
         const terminal = document.getElementById('terminal-logs');
 
-        // ✅ BACKEND URL - ဒီနေရာမှာ ခင်ဗျားရဲ့ Render Backend URL ကို ထည့်ပါ
+        //  BACKEND URL - မှန်ကန်ပြီ
         const BACKEND_URL = 'https://gi-backend-op5h.onrender.com';
 
         function addLog(message) {
@@ -386,7 +386,7 @@
             dlBtn.innerText = "PROCESSING...";
 
             try {
-                // 🔥 Backend ကို API Call လုပ်မယ်
+                //  Backend ကို API Call လုပ်မယ်
                 const response = await fetch(`${BACKEND_URL}/api/fetch`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -405,7 +405,7 @@
                 addLog(`Uplink stable. Found: ${data.title || 'Media'}`);
                 addLog(`Available formats: ${data.formats ? Object.keys(data.formats).join(', ') : 'N/A'}`);
 
-                // ✅ File Size နဲ့ Duration ကိုပြသမယ်
+                //  File Size နဲ့ Duration ကိုပြသမယ်
                 if (data.filesize) {
                     const sizeInMB = (data.filesize / (1024 * 1024)).toFixed(2);
                     document.getElementById('file-size').innerText = `File Size: ${sizeInMB} MB`;
@@ -419,7 +419,7 @@
 
                 document.getElementById('file-info').style.display = 'block';
 
-                // 🔥 Download ကို Trigger လုပ်မယ်
+                //  Download ကို Trigger လုပ်မယ်
                 const downloadUrl = `${BACKEND_URL}/api/download?url=${encodeURIComponent(url)}&format=${format}&quality=${quality}`;
                 window.location.href = downloadUrl;
 
