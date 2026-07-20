@@ -213,7 +213,7 @@
 
         <div class="glass-card">
             <div class="input-group">
-                <input type="text" id="media-url" class="url-input" placeholder="PASTE MEDIA URL HERE (Youtube, Twitter, etc.)..." autocomplete="off">
+                <input type="text" id="media-url" class="url-input" placeholder="PASTE MEDIA URL HERE (Facebook, Instagram, etc.)..." autocomplete="off">
                 
                 <div class="selectors">
                     <select id="format-select">
@@ -261,7 +261,7 @@
             ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            ctx.fillStyle = '#0F0'; // Simple green
+            ctx.fillStyle = '#0F0';
             ctx.font = fontSize + 'px monospace';
 
             for (let i = 0; i < rainDrops.length; i++) {
@@ -282,10 +282,13 @@
 
         setInterval(drawMatrix, 30);
 
-        // --- Terminal & Download Logic ---
+        // --- Terminal & Download Logic (Connected to Backend) ---
         const dlBtn = document.getElementById('dl-button');
         const terminal = document.getElementById('terminal-logs');
         const urlInput = document.getElementById('media-url');
+
+        // **✅ BACKEND URL - ဒီနေရာမှာ ခင်ဗျားရဲ့ Render Backend URL ကို ထည့်ပါ**
+        const BACKEND_URL = 'https://gi-backend.onrender.com';
 
         function addLog(message) {
             const entry = document.createElement('div');
@@ -295,7 +298,7 @@
             terminal.scrollTop = terminal.scrollHeight;
         }
 
-        dlBtn.addEventListener('click', () => {
+        dlBtn.addEventListener('click', async () => {
             const url = urlInput.value;
             const format = document.getElementById('format-select').value;
             const quality = document.getElementById('quality-select').value;
@@ -309,23 +312,41 @@
             addLog(`Parameters: Format=${format.toUpperCase()}, Quality=${quality}`);
             addLog("Bypassing firewall... Injecting yt-dlp payload...");
             
-            // Simulating process for UI feel
             dlBtn.disabled = true;
             dlBtn.innerText = "PROCESSING...";
 
-            setTimeout(() => {
-                addLog("Metadata extracted successfully.");
-                addLog("Compiling chunks... Please wait.");
-                
-                // Here you would typically make a fetch() call to your Flask backend
-                // fetch('/download', { method: 'POST', body: JSON.stringify({url, format, quality}) })
-                
-                setTimeout(() => {
-                    addLog("SUCCESS: Download link generated.");
+            try {
+                // 🔥 Backend ကို API Call လုပ်မယ်
+                const response = await fetch(`${BACKEND_URL}/api/fetch`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: url })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    addLog(`CRITICAL ERROR: ${data.error}`);
                     dlBtn.disabled = false;
-                    dlBtn.innerText = "DOWNLOAD READY";
-                }, 2000);
-            }, 1500);
+                    dlBtn.innerText = "INITIALIZE DOWNLOAD";
+                    return;
+                }
+
+                addLog(`Uplink stable. Found: ${data.title || 'Media'}`);
+                addLog(`Available formats: ${data.formats ? Object.keys(data.formats).join(', ') : 'N/A'}`);
+                
+                // 🔥 Download ကို Trigger လုပ်မယ်
+                const downloadUrl = `${BACKEND_URL}/api/download?url=${encodeURIComponent(url)}&format=${format}&quality=${quality}`;
+                window.location.href = downloadUrl;
+                
+                addLog("SUCCESS: Download link generated. Redirecting...");
+
+            } catch (error) {
+                addLog(`SYSTEM ERROR: ${error.message}`);
+            } finally {
+                dlBtn.disabled = false;
+                dlBtn.innerText = "INITIALIZE DOWNLOAD";
+            }
         });
     </script>
 </body>
