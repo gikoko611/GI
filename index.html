@@ -79,7 +79,7 @@
         .input-group {
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 15px;
         }
 
         .url-input {
@@ -105,6 +105,27 @@
             padding: 10px;
             cursor: pointer;
             outline: none;
+        }
+
+        #platform-select {
+            width: 100%;
+        }
+
+        #example-url {
+            margin-top: 5px;
+            font-size: 0.8rem;
+            opacity: 0.7;
+            color: #00ff41;
+            text-align: center;
+            cursor: pointer;
+            padding: 5px;
+            border: 1px dashed transparent;
+            transition: 0.3s;
+        }
+
+        #example-url:hover {
+            border-color: var(--matrix-green);
+            opacity: 1;
         }
 
         .download-btn {
@@ -220,7 +241,18 @@
 
         <div class="glass-card">
             <div class="input-group">
-                <input type="text" id="media-url" class="url-input" placeholder="PASTE MEDIA URL HERE (Facebook, Instagram, etc.)..." autocomplete="off">
+                <!-- Platform Selector -->
+                <select id="platform-select">
+                    <option value="facebook">📘 Facebook</option>
+                    <option value="instagram">📸 Instagram</option>
+                    <option value="twitter">🐦 Twitter (X)</option>
+                    <option value="tiktok">🎵 TikTok</option>
+                </select>
+
+                <input type="text" id="media-url" class="url-input" placeholder="PASTE MEDIA URL HERE..." autocomplete="off">
+
+                <!-- Example URL Display -->
+                <div id="example-url">Example: https://www.facebook.com/watch/?v=123456789</div>
 
                 <div class="selectors">
                     <select id="format-select">
@@ -253,7 +285,7 @@
     </div>
 
     <footer>
-        GIdownloader v1.0.5 | Disclaimer: This tool is for educational purposes. Users are responsible for adhering to the terms of service of third-party platforms.
+        GIdownloader v1.0.6 | Supports: Facebook, Instagram, Twitter (X), TikTok | Disclaimer: For educational purposes only.
     </footer>
 
     <script>
@@ -294,10 +326,34 @@
 
         setInterval(drawMatrix, 30);
 
+        // --- Platform Example URLs ---
+        const platformExamples = {
+            facebook: 'https://www.facebook.com/watch/?v=123456789',
+            instagram: 'https://www.instagram.com/p/CxYz123ABC/',
+            twitter: 'https://twitter.com/username/status/123456789',
+            tiktok: 'https://www.tiktok.com/@username/video/123456789'
+        };
+
+        const platformSelect = document.getElementById('platform-select');
+        const exampleDisplay = document.getElementById('example-url');
+        const urlInput = document.getElementById('media-url');
+
+        // Update example URL when platform changes
+        platformSelect.addEventListener('change', function() {
+            const platform = this.value;
+            exampleDisplay.innerText = `Example: ${platformExamples[platform]}`;
+        });
+
+        // When user clicks on example, auto-fill the input
+        exampleDisplay.addEventListener('click', function() {
+            const platform = platformSelect.value;
+            urlInput.value = platformExamples[platform];
+            addLog(`Example URL loaded for ${platformSelect.options[platformSelect.selectedIndex].text}`);
+        });
+
         // --- Terminal & Download Logic (Connected to Backend) ---
         const dlBtn = document.getElementById('dl-button');
         const terminal = document.getElementById('terminal-logs');
-        const urlInput = document.getElementById('media-url');
 
         // ✅ BACKEND URL - ဒီနေရာမှာ ခင်ဗျားရဲ့ Render Backend URL ကို ထည့်ပါ
         const BACKEND_URL = 'https://gi-backend-xbp3.onrender.com';
@@ -314,12 +370,14 @@
             const url = urlInput.value;
             const format = document.getElementById('format-select').value;
             const quality = document.getElementById('quality-select').value;
+            const platform = platformSelect.value;
 
             if (!url) {
                 addLog("ERROR: Target URL missing. Connection failed.");
                 return;
             }
 
+            addLog(`Platform: ${platformSelect.options[platformSelect.selectedIndex].text}`);
             addLog(`Targeting: ${url.substring(0, 30)}...`);
             addLog(`Parameters: Format=${format.toUpperCase()}, Quality=${quality}`);
             addLog("Bypassing firewall... Injecting yt-dlp payload...");
