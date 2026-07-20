@@ -197,11 +197,26 @@
             100% { transform: translate(0); }
         }
 
+        /* Video Thumbnail */
+        #thumbnail-container {
+            margin-top: 15px;
+            display: none;
+            text-align: center;
+        }
+
+        #thumbnail-container img {
+            max-width: 100%;
+            max-height: 200px;
+            border: 1px solid var(--matrix-green);
+            border-radius: 8px;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
+        }
+
         .terminal {
-            margin-top: 30px;
+            margin-top: 15px;
             background: rgba(0, 0, 0, 0.8);
             border: 1px solid var(--darker-green);
-            height: 150px;
+            height: 120px;
             overflow-y: auto;
             padding: 10px;
             font-size: 0.85rem;
@@ -258,15 +273,20 @@
             line-height: 20px;
         }
 
-        #file-info {
+        /* Download Info */
+        #download-info {
             margin-top: 10px;
             color: var(--matrix-green);
             font-size: 0.9rem;
             display: none;
             text-align: center;
-            padding: 5px;
+            padding: 10px;
             border: 1px dashed var(--matrix-green);
             border-radius: 5px;
+        }
+
+        #download-info span {
+            margin: 0 10px;
         }
 
         footer {
@@ -282,6 +302,7 @@
             .glass-card { padding: 15px; }
             .url-row { flex-direction: column; }
             .copy-btn { width: 100%; }
+            #download-info span { display: block; margin: 5px 0; }
         }
 
         @keyframes fadeIn {
@@ -338,6 +359,11 @@
                 <button class="download-btn" id="dl-button">Initialize Download</button>
             </div>
 
+            <!-- Video Thumbnail -->
+            <div id="thumbnail-container">
+                <img id="thumbnail-img" src="" alt="Video Thumbnail">
+            </div>
+
             <!-- Progress Bar -->
             <div id="progress-container">
                 <div id="progress-bar">
@@ -346,19 +372,20 @@
                 </div>
             </div>
 
-            <div class="terminal" id="terminal-logs">
-                <div class="log-entry">System initialized. Waiting for uplink...</div>
+            <!-- Download Info: Speed + Time Remaining -->
+            <div id="download-info">
+                <span id="download-speed">⚡ Speed: --</span>
+                <span id="time-remaining">⏱️ Remaining: --</span>
             </div>
 
-            <div id="file-info">
-                <span id="file-size">File Size: --</span> |
-                <span id="file-duration">Duration: --</span>
+            <div class="terminal" id="terminal-logs">
+                <div class="log-entry">System initialized. Waiting for uplink...</div>
             </div>
         </div>
     </div>
 
     <footer>
-        GIdownloader v1.0.7 | Supports: Facebook, Instagram, Twitter (X), TikTok | Disclaimer: For educational purposes only.
+        GIdownloader v1.0.8 | Supports: Facebook, Instagram, Twitter (X), TikTok | Disclaimer: For educational purposes only.
     </footer>
 
     <script>
@@ -423,7 +450,6 @@
             const platform = platformSelect.value;
             urlInput.value = platformExamples[platform];
             addLog(`Example URL loaded for ${platformSelect.options[platformSelect.selectedIndex].text}`);
-            // Auto-detect format after loading
             autoDetectFormat(urlInput.value);
         });
 
@@ -433,11 +459,9 @@
                 const text = await navigator.clipboard.readText();
                 urlInput.value = text;
                 addLog("URL copied from clipboard successfully.");
-                // Auto-detect format after paste
                 autoDetectFormat(text);
             } catch (err) {
                 addLog("ERROR: Unable to access clipboard. Please paste manually.");
-                // Fallback: select all and prompt to copy
                 urlInput.select();
                 document.execCommand('copy');
                 addLog("URL selected. Press Ctrl+C to copy.");
@@ -447,32 +471,23 @@
         // --- Auto-Detect Format ---
         function autoDetectFormat(url) {
             if (!url) return;
-            
-            const platformSelect = document.getElementById('platform-select');
-            const formatSelect = document.getElementById('format-select');
-            
-            // Detect platform from URL
+
             let detectedPlatform = 'facebook';
             if (url.includes('instagram.com')) detectedPlatform = 'instagram';
             else if (url.includes('twitter.com') || url.includes('x.com')) detectedPlatform = 'twitter';
             else if (url.includes('tiktok.com')) detectedPlatform = 'tiktok';
-            
+
             platformSelect.value = detectedPlatform;
             exampleDisplay.innerText = `Example: ${platformExamples[detectedPlatform]}`;
-            
+
             addLog(`Auto-detected platform: ${platformSelect.options[platformSelect.selectedIndex].text}`);
-            
-            // Auto-select best format based on platform
-            if (detectedPlatform === 'tiktok') {
-                formatSelect.value = 'mp4';
-                addLog("Auto-selected format: MP4 (best for TikTok)");
-            } else if (detectedPlatform === 'instagram') {
-                formatSelect.value = 'mp4';
-                addLog("Auto-selected format: MP4 (best for Instagram)");
+
+            if (detectedPlatform === 'tiktok' || detectedPlatform === 'instagram') {
+                document.getElementById('format-select').value = 'mp4';
+                addLog("Auto-selected format: MP4 (best for this platform)");
             }
         }
 
-        // Auto-detect when user types or pastes URL
         urlInput.addEventListener('input', function() {
             const url = this.value;
             if (url.length > 10) {
@@ -480,11 +495,10 @@
             }
         });
 
-        // --- Terminal & Download Logic (Connected to Backend) ---
+        // --- Terminal & Download Logic ---
         const dlBtn = document.getElementById('dl-button');
         const terminal = document.getElementById('terminal-logs');
 
-        // ✅ BACKEND URL
         const BACKEND_URL = 'https://gi-backend-op5h.onrender.com';
 
         function addLog(message) {
@@ -495,7 +509,7 @@
             terminal.scrollTop = terminal.scrollHeight;
         }
 
-        // Progress Bar Functions
+        // --- Progress Bar ---
         function showProgress() {
             document.getElementById('progress-container').style.display = 'block';
             updateProgress(0);
@@ -514,23 +528,82 @@
             updateProgress(0);
         }
 
-        // Simulate progress (since we can't track actual download progress)
-        function simulateProgress() {
-            let progress = 0;
+        // --- Download Speed & Time Remaining ---
+        function showDownloadInfo() {
+            document.getElementById('download-info').style.display = 'block';
+        }
+
+        function updateDownloadInfo(speed, timeRemaining) {
+            document.getElementById('download-speed').innerText = `⚡ Speed: ${speed}`;
+            document.getElementById('time-remaining').innerText = `⏱️ Remaining: ${timeRemaining}`;
+        }
+
+        function hideDownloadInfo() {
+            document.getElementById('download-info').style.display = 'none';
+        }
+
+        // --- Video Thumbnail ---
+        function showThumbnail(url) {
+            const container = document.getElementById('thumbnail-container');
+            const img = document.getElementById('thumbnail-img');
+            if (url) {
+                img.src = url;
+                container.style.display = 'block';
+            } else {
+                container.style.display = 'none';
+            }
+        }
+
+        // --- Simulate Download Progress with Speed & Time ---
+        function simulateDownload(totalSize, duration) {
+            let downloaded = 0;
+            const startTime = Date.now();
+            let lastUpdate = startTime;
+            let lastDownloaded = 0;
+
+            // Convert totalSize to MB if needed
+            const totalMB = totalSize / (1024 * 1024);
+            const totalSeconds = duration || 30; // Fallback to 30 seconds
+
             const interval = setInterval(() => {
-                progress += Math.random() * 15 + 5;
-                if (progress >= 100) {
-                    progress = 100;
+                const now = Date.now();
+                const timeDiff = (now - lastUpdate) / 1000; // seconds
+                lastUpdate = now;
+
+                // Random download speed between 0.5 - 5 MB/s
+                const speedMBps = 0.5 + Math.random() * 4.5;
+                const chunkMB = speedMBps * timeDiff;
+                downloaded += chunkMB;
+
+                const percent = Math.min(100, (downloaded / totalMB) * 100);
+                updateProgress(percent);
+
+                // Calculate time remaining
+                const remainingMB = totalMB - downloaded;
+                const etaSeconds = remainingMB / speedMBps;
+                const etaMinutes = Math.floor(etaSeconds / 60);
+                const etaSecs = Math.floor(etaSeconds % 60);
+                const timeStr = etaSeconds > 60 ? `${etaMinutes}m ${etaSecs}s` : `${etaSecs}s`;
+
+                // Speed display
+                const speedDisplay = speedMBps > 1 ? `${speedMBps.toFixed(1)} MB/s` : `${(speedMBps * 1024).toFixed(0)} KB/s`;
+                updateDownloadInfo(speedDisplay, timeStr);
+
+                if (percent >= 100) {
                     clearInterval(interval);
+                    updateProgress(100);
+                    updateDownloadInfo('--', 'Complete! ✅');
                     setTimeout(() => {
                         hideProgress();
-                    }, 500);
+                        hideDownloadInfo();
+                    }, 2000);
                 }
-                updateProgress(progress);
             }, 300);
+
             return interval;
         }
 
+        // --- Main Download Button ---
         dlBtn.addEventListener('click', async () => {
             const url = urlInput.value;
             const format = document.getElementById('format-select').value;
@@ -550,8 +623,7 @@
             dlBtn.disabled = true;
             dlBtn.innerText = "PROCESSING...";
             showProgress();
-
-            let progressInterval = simulateProgress();
+            showDownloadInfo();
 
             try {
                 const response = await fetch(`${BACKEND_URL}/api/fetch`, {
@@ -567,41 +639,60 @@
                     dlBtn.disabled = false;
                     dlBtn.innerText = "INITIALIZE DOWNLOAD";
                     hideProgress();
-                    clearInterval(progressInterval);
+                    hideDownloadInfo();
                     return;
                 }
 
                 addLog(`Uplink stable. Found: ${data.title || 'Media'}`);
-                addLog(`Available formats: ${data.formats ? Object.keys(data.formats).join(', ') : 'N/A'}`);
 
-                if (data.filesize) {
-                    const sizeInMB = (data.filesize / (1024 * 1024)).toFixed(2);
-                    document.getElementById('file-size').innerText = `File Size: ${sizeInMB} MB`;
+                // Show thumbnail if available
+                if (data.thumbnail) {
+                    showThumbnail(data.thumbnail);
+                    addLog("Thumbnail loaded successfully.");
                 }
 
-                if (data.duration) {
-                    const minutes = Math.floor(data.duration / 60);
-                    const seconds = data.duration % 60;
-                    document.getElementById('file-duration').innerText = `Duration: ${minutes}m ${seconds}s`;
+                // Get file size and duration
+                let fileSize = data.filesize || 0;
+                let duration = data.duration || 0;
+
+                // If filesize is 0, use fallback (simulate with 50MB)
+                if (fileSize === 0) {
+                    fileSize = 50 * 1024 * 1024; // 50MB fallback
+                    addLog("⚠️ File size unknown. Using estimated size.");
                 }
 
-                document.getElementById('file-info').style.display = 'block';
+                // Start simulation
+                const totalMB = fileSize / (1024 * 1024);
+                addLog(`File Size: ${totalMB.toFixed(2)} MB`);
 
+                if (duration > 0) {
+                    const mins = Math.floor(duration / 60);
+                    const secs = duration % 60;
+                    addLog(`Duration: ${mins}m ${secs}s`);
+                }
+
+                // Simulate download process
+                const simInterval = simulateDownload(fileSize, duration);
+
+                // Actually trigger the download
                 const downloadUrl = `${BACKEND_URL}/api/download?url=${encodeURIComponent(url)}&format=${format}&quality=${quality}`;
                 window.location.href = downloadUrl;
 
                 addLog("SUCCESS: Download link generated. Redirecting...");
 
+                // Clean up after download completes
+                setTimeout(() => {
+                    clearInterval(simInterval);
+                    dlBtn.disabled = false;
+                    dlBtn.innerText = "INITIALIZE DOWNLOAD";
+                }, 5000);
+
             } catch (error) {
                 addLog(`SYSTEM ERROR: ${error.message}`);
                 hideProgress();
-                clearInterval(progressInterval);
-            } finally {
+                hideDownloadInfo();
                 dlBtn.disabled = false;
                 dlBtn.innerText = "INITIALIZE DOWNLOAD";
-                setTimeout(() => {
-                    hideProgress();
-                }, 3000);
             }
         });
     </script>
