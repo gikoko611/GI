@@ -30,7 +30,6 @@
             min-height: 100vh;
         }
 
-        /* Matrix Background */
         #matrix-canvas {
             position: fixed;
             top: 0;
@@ -38,7 +37,6 @@
             z-index: -1;
         }
 
-        /* Main Container */
         .wrapper {
             flex: 1;
             display: flex;
@@ -65,7 +63,6 @@
             padding: 5px 10px;
         }
 
-        /* Glassmorphism Card */
         .glass-card {
             background: var(--glass-bg);
             backdrop-filter: blur(12px);
@@ -110,7 +107,6 @@
             outline: none;
         }
 
-        /* Download Button & Glitch Effect */
         .download-btn {
             position: relative;
             background: var(--matrix-green);
@@ -133,7 +129,10 @@
         .download-btn::after {
             content: 'READY?';
             position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             background: var(--matrix-green);
             display: none;
             align-items: center;
@@ -154,7 +153,6 @@
             100% { transform: translate(0); }
         }
 
-        /* Terminal Logs */
         .terminal {
             margin-top: 30px;
             background: rgba(0, 0, 0, 0.8);
@@ -180,7 +178,17 @@
             content: "> ";
         }
 
-        /* Footer */
+        #file-info {
+            margin-top: 10px;
+            color: var(--matrix-green);
+            font-size: 0.9rem;
+            display: none;
+            text-align: center;
+            padding: 5px;
+            border: 1px dashed var(--matrix-green);
+            border-radius: 5px;
+        }
+
         footer {
             padding: 20px;
             text-align: center;
@@ -188,7 +196,6 @@
             opacity: 0.7;
         }
 
-        /* Mobile Adjustments */
         @media (max-width: 600px) {
             header h1 { font-size: 2rem; }
             .selectors { grid-template-columns: 1fr; }
@@ -214,7 +221,7 @@
         <div class="glass-card">
             <div class="input-group">
                 <input type="text" id="media-url" class="url-input" placeholder="PASTE MEDIA URL HERE (Facebook, Instagram, etc.)..." autocomplete="off">
-                
+
                 <div class="selectors">
                     <select id="format-select">
                         <option value="mp4">FORMAT: MP4 (Video)</option>
@@ -237,11 +244,16 @@
             <div class="terminal" id="terminal-logs">
                 <div class="log-entry">System initialized. Waiting for uplink...</div>
             </div>
+
+            <div id="file-info">
+                <span id="file-size">File Size: --</span> |
+                <span id="file-duration">Duration: --</span>
+            </div>
         </div>
     </div>
 
     <footer>
-        GIdownloader v1.0.4 | Disclaimer: This tool is for educational purposes. Users are responsible for adhering to the terms of service of third-party platforms.
+        GIdownloader v1.0.5 | Disclaimer: This tool is for educational purposes. Users are responsible for adhering to the terms of service of third-party platforms.
     </footer>
 
     <script>
@@ -287,7 +299,7 @@
         const terminal = document.getElementById('terminal-logs');
         const urlInput = document.getElementById('media-url');
 
-        // **✅ BACKEND URL - ဒီနေရာမှာ ခင်ဗျားရဲ့ Render Backend URL ကို ထည့်ပါ**
+        // ✅ BACKEND URL - ဒီနေရာမှာ ခင်ဗျားရဲ့ Render Backend URL ကို ထည့်ပါ
         const BACKEND_URL = 'https://gi-backend-xbp3.onrender.com';
 
         function addLog(message) {
@@ -311,7 +323,7 @@
             addLog(`Targeting: ${url.substring(0, 30)}...`);
             addLog(`Parameters: Format=${format.toUpperCase()}, Quality=${quality}`);
             addLog("Bypassing firewall... Injecting yt-dlp payload...");
-            
+
             dlBtn.disabled = true;
             dlBtn.innerText = "PROCESSING...";
 
@@ -334,11 +346,25 @@
 
                 addLog(`Uplink stable. Found: ${data.title || 'Media'}`);
                 addLog(`Available formats: ${data.formats ? Object.keys(data.formats).join(', ') : 'N/A'}`);
-                
+
+                // ✅ File Size နဲ့ Duration ကိုပြသမယ်
+                if (data.filesize) {
+                    const sizeInMB = (data.filesize / (1024 * 1024)).toFixed(2);
+                    document.getElementById('file-size').innerText = `File Size: ${sizeInMB} MB`;
+                }
+
+                if (data.duration) {
+                    const minutes = Math.floor(data.duration / 60);
+                    const seconds = data.duration % 60;
+                    document.getElementById('file-duration').innerText = `Duration: ${minutes}m ${seconds}s`;
+                }
+
+                document.getElementById('file-info').style.display = 'block';
+
                 // 🔥 Download ကို Trigger လုပ်မယ်
                 const downloadUrl = `${BACKEND_URL}/api/download?url=${encodeURIComponent(url)}&format=${format}&quality=${quality}`;
                 window.location.href = downloadUrl;
-                
+
                 addLog("SUCCESS: Download link generated. Redirecting...");
 
             } catch (error) {
