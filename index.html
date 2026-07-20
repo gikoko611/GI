@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GIdownloader | Hacker Media Grabber</title>
+    <style>
+        :root {
+            --matrix-green: #00ff41;
+            --darker-green: #003b00;
+            --bg-black: #0d0208;
+            --glass-bg: rgba(0, 20, 0, 0.7);
+            --neon-border: 0 0 10px #00ff41, inset 0 0 5px #00ff41;
+            --font-main: 'Courier New', Courier, monospace;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: var(--font-main);
+        }
+
+        body {
+            background-color: var(--bg-black);
+            color: var(--matrix-green);
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* Matrix Background */
+        #matrix-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: -1;
+        }
+
+        /* Main Container */
+        .wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 1;
+        }
+
+        header h1 {
+            font-size: 3rem;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            text-shadow: 0 0 15px var(--matrix-green);
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        header p {
+            margin-bottom: 40px;
+            font-weight: bold;
+            background: black;
+            padding: 5px 10px;
+        }
+
+        /* Glassmorphism Card */
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--matrix-green);
+            box-shadow: var(--neon-border);
+            border-radius: 15px;
+            padding: 30px;
+            width: 100%;
+            max-width: 650px;
+            animation: fadeIn 1.5s ease-in-out;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .url-input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid var(--matrix-green);
+            padding: 15px;
+            color: var(--matrix-green);
+            font-size: 1.1rem;
+            outline: none;
+        }
+
+        .selectors {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        select {
+            background: black;
+            color: var(--matrix-green);
+            border: 1px solid var(--matrix-green);
+            padding: 10px;
+            cursor: pointer;
+            outline: none;
+        }
+
+        /* Download Button & Glitch Effect */
+        .download-btn {
+            position: relative;
+            background: var(--matrix-green);
+            color: black;
+            border: none;
+            padding: 15px;
+            font-weight: bold;
+            font-size: 1.2rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            overflow: hidden;
+            transition: 0.3s;
+        }
+
+        .download-btn:hover {
+            box-shadow: 0 0 30px var(--matrix-green);
+            transform: scale(1.02);
+        }
+
+        .download-btn::after {
+            content: 'READY?';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--matrix-green);
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .download-btn:hover::after {
+            display: flex;
+            animation: glitch 0.3s cubic-bezier(.25, .46, .45, .94) both infinite;
+        }
+
+        @keyframes glitch {
+            0% { transform: translate(0); }
+            20% { transform: translate(-3px, 3px); }
+            40% { transform: translate(-3px, -3px); }
+            60% { transform: translate(3px, 3px); }
+            80% { transform: translate(3px, -3px); }
+            100% { transform: translate(0); }
+        }
+
+        /* Terminal Logs */
+        .terminal {
+            margin-top: 30px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid var(--darker-green);
+            height: 150px;
+            overflow-y: auto;
+            padding: 10px;
+            font-size: 0.85rem;
+            border-radius: 5px;
+        }
+
+        .terminal::-webkit-scrollbar {
+            width: 5px;
+        }
+        .terminal::-webkit-scrollbar-thumb {
+            background: var(--matrix-green);
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+        }
+        .log-entry::before {
+            content: "> ";
+        }
+
+        /* Footer */
+        footer {
+            padding: 20px;
+            text-align: center;
+            font-size: 0.7rem;
+            opacity: 0.7;
+        }
+
+        /* Mobile Adjustments */
+        @media (max-width: 600px) {
+            header h1 { font-size: 2rem; }
+            .selectors { grid-template-columns: 1fr; }
+            .glass-card { padding: 15px; }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="matrix-canvas"></canvas>
+
+    <div class="wrapper">
+        <header>
+            <h1>GIdownloader</h1>
+            <p>ACCESSING GLOBAL MEDIA STREAM... [UNRESTRICTED]</p>
+        </header>
+
+        <div class="glass-card">
+            <div class="input-group">
+                <input type="text" id="media-url" class="url-input" placeholder="PASTE MEDIA URL HERE (Youtube, Twitter, etc.)..." autocomplete="off">
+                
+                <div class="selectors">
+                    <select id="format-select">
+                        <option value="mp4">FORMAT: MP4 (Video)</option>
+                        <option value="mp3">FORMAT: MP3 (Audio)</option>
+                        <option value="3gp">FORMAT: 3GP (Mobile)</option>
+                    </select>
+
+                    <select id="quality-select">
+                        <option value="4k">QUALITY: 4K (Ultra HD)</option>
+                        <option value="2k">QUALITY: 2K (Quad HD)</option>
+                        <option value="1080p" selected>QUALITY: 1080p (FHD)</option>
+                        <option value="720p">QUALITY: 720p (HD)</option>
+                        <option value="360p">QUALITY: 360p (SD)</option>
+                    </select>
+                </div>
+
+                <button class="download-btn" id="dl-button">Initialize Download</button>
+            </div>
+
+            <div class="terminal" id="terminal-logs">
+                <div class="log-entry">System initialized. Waiting for uplink...</div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        GIdownloader v1.0.4 | Disclaimer: This tool is for educational purposes. Users are responsible for adhering to the terms of service of third-party platforms.
+    </footer>
+
+    <script>
+        // --- Matrix Rain Animation ---
+        const canvas = document.getElementById('matrix-canvas');
+        const ctx = canvas.getContext('2d');
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789$#@%&*";
+        const fontSize = 16;
+        const columns = canvas.width / fontSize;
+        const rainDrops = Array.from({ length: columns }).fill(1);
+
+        function drawMatrix() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#0F0'; // Simple green
+            ctx.font = fontSize + 'px monospace';
+
+            for (let i = 0; i < rainDrops.length; i++) {
+                const text = alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+                ctx.fillText(text, i * fontSize, rainDrops[i] * fontSize);
+
+                if (rainDrops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                    rainDrops[i] = 0;
+                }
+                rainDrops[i]++;
+            }
+        }
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        setInterval(drawMatrix, 30);
+
+        // --- Terminal & Download Logic ---
+        const dlBtn = document.getElementById('dl-button');
+        const terminal = document.getElementById('terminal-logs');
+        const urlInput = document.getElementById('media-url');
+
+        function addLog(message) {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerText = `[${new Date().toLocaleTimeString()}] ${message}`;
+            terminal.appendChild(entry);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        dlBtn.addEventListener('click', () => {
+            const url = urlInput.value;
+            const format = document.getElementById('format-select').value;
+            const quality = document.getElementById('quality-select').value;
+
+            if (!url) {
+                addLog("ERROR: Target URL missing. Connection failed.");
+                return;
+            }
+
+            addLog(`Targeting: ${url.substring(0, 30)}...`);
+            addLog(`Parameters: Format=${format.toUpperCase()}, Quality=${quality}`);
+            addLog("Bypassing firewall... Injecting yt-dlp payload...");
+            
+            // Simulating process for UI feel
+            dlBtn.disabled = true;
+            dlBtn.innerText = "PROCESSING...";
+
+            setTimeout(() => {
+                addLog("Metadata extracted successfully.");
+                addLog("Compiling chunks... Please wait.");
+                
+                // Here you would typically make a fetch() call to your Flask backend
+                // fetch('/download', { method: 'POST', body: JSON.stringify({url, format, quality}) })
+                
+                setTimeout(() => {
+                    addLog("SUCCESS: Download link generated.");
+                    dlBtn.disabled = false;
+                    dlBtn.innerText = "DOWNLOAD READY";
+                }, 2000);
+            }, 1500);
+        });
+    </script>
+</body>
+</html>
