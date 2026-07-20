@@ -24,24 +24,31 @@ def get_yt_dlp_options(format_selection, quality):
     # Get the height value, default to 720 if not found
     height = quality_map.get(quality, '720')
     
+    # Common options for all platforms
+    common_opts = {
+        'quiet': True,
+        'no_warnings': True,
+        'ignoreerrors': True,
+        'extract_flat': False,
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'cookiefile': None,  # Add cookies.txt path if needed for private videos
+    }
+    
     if format_selection == 'mp3':
         return {
+            **common_opts,
             'format': 'bestaudio/best',
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
                 'preferredquality': '192',
             }],
-            'quiet': True,
-            'no_warnings': True,
         }
     
     # For video: try requested quality, fallback to lower if not available
     return {
+        **common_opts,
         'format': f'bestvideo[height<={height}]+bestaudio/bestvideo[height<={height}]/best',
-        'quiet': True,
-        'no_warnings': True,
-        'ignoreerrors': True,  # Don't crash if format not found
     }
 
 # --- ROUTES ---
@@ -50,6 +57,7 @@ def get_yt_dlp_options(format_selection, quality):
 def fetch_info():
     """
     Accepts a URL and returns available metadata and formats.
+    Supports: Facebook, Instagram, Twitter (X), TikTok
     """
     data = request.json
     url = data.get('url')
@@ -61,6 +69,8 @@ def fetch_info():
         'quiet': True, 
         'noplaylist': True,
         'no_warnings': True,
+        'ignoreerrors': True,
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     }
     
     try:
@@ -84,10 +94,15 @@ def fetch_info():
                     'acodec': f.get('acodec') != 'none',
                 })
 
+            # Get file size and duration
+            filesize = info.get('filesize_approx') or info.get('filesize') or 0
+            duration = info.get('duration') or 0
+
             return jsonify({
                 "title": info.get('title', 'Unknown Title'),
                 "thumbnail": info.get('thumbnail'),
-                "duration": info.get('duration'),
+                "duration": duration,
+                "filesize": filesize,
                 "uploader": info.get('uploader', 'Unknown'),
                 "formats": formats_available
             })
@@ -101,6 +116,7 @@ def download():
     """
     Streams the video/audio to the client with flexible quality selection.
     Falls back to lower quality if requested quality is not available.
+    Supports: Facebook, Instagram, Twitter (X), TikTok
     """
     video_url = request.args.get('url')
     requested_format = request.args.get('format', 'mp4')
@@ -122,7 +138,7 @@ def download():
 
     try:
         # First, try to get the video info to check available formats
-        with yt_dlp.YoutubeDL({'quiet': True, 'no_warnings': True}) as ydl:
+        with yt_dlp.YoutubeDL({'quiet': True, 'no_warnings': True, 'ignoreerrors': True}) as ydl:
             info = ydl.extract_info(video_url, download=False)
             
             # Get available heights from formats
@@ -161,6 +177,8 @@ def download():
                 }],
                 'quiet': True,
                 'no_warnings': True,
+                'ignoreerrors': True,
+                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             }
         else:
             # For video: try requested height, fallback to best available
@@ -169,6 +187,7 @@ def download():
                 'quiet': True,
                 'no_warnings': True,
                 'ignoreerrors': True,
+                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -199,7 +218,9 @@ def download():
             
             # Stream the file
             import requests
-            req = requests.get(download_url, stream=True)
+            req = requests.get(download_url, stream=True, headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            })
             
             # Create response with proper headers
             response = Response(
@@ -215,8 +236,21 @@ def download():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+@app.route('/api/health', methods=['GET'])
+def health():
+    """
+    Health check endpoint to verify backend is running.
+    """
+    return jsonify({
+        "status": "online",
+        "message": "GIdownloader Backend is live!",
+        "supported_platforms": ["Facebook", "Instagram", "Twitter (X)", "TikTok"]
+    })
+
 if __name__ == '__main__':
     # GIdownloader Terminal Boot Sequence
-    print(" [READY] GIdownloader Backend Uplink Established...")
-    print(" [PORT]  Running on http://127.0.0.1:5000")
+    print("  [READY] GIdownloader Backend Uplink Established...")
+    print("  [SUPPORT] Facebook, Instagram, Twitter (X), TikTok")
+    print("  [PORT]  Running on http://127.0.0.1:5000")
     app.run(debug=True, port=5000)
