@@ -1,0 +1,61 @@
+name: Render Life Animation
+
+on:
+  workflow_dispatch:
+    inputs:
+      fps:
+        description: 'Frames per second'
+        required: false
+        default: '24'
+  push:
+    paths:
+      - 'life-animation/**'
+      - '.github/workflows/render-life-animation.yml'
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ffmpeg \
+            espeak-ng \
+            fonts-sil-padauk \
+            fonts-noto-core \
+            fonts-noto-color-emoji \
+            fonts-dejavu-core \
+            libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
+            libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
+            libgbm1 libasound2t64 || sudo apt-get install -y \
+            ffmpeg espeak-ng fonts-sil-padauk fonts-noto-core fonts-noto-color-emoji \
+            fonts-dejavu-core libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
+            libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
+            libgbm1 libasound2
+
+      - name: Install Node dependencies
+        working-directory: life-animation
+        run: npm install
+
+      - name: Render animation video
+        working-directory: life-animation
+        env:
+          FPS: ${{ github.event.inputs.fps || '24' }}
+        run: bash render/render.sh
+
+      - name: Upload video artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: baw-khayi-lan-480x854
+          path: life-animation/output/baw_khayi_lan_480x854.mp4
+          if-no-files-found: error

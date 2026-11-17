@@ -1,0 +1,13 @@
+{
+  "name": "life-animation-render",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "serve": "node render/serve.mjs",
+    "capture": "node render/capture.mjs",
+    "render": "bash render/render.sh"
+  },
+  "dependencies": {
+    "puppeteer": "^22.15.0"
+  }
+}
