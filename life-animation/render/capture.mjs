@@ -25,9 +25,12 @@ const browser = await puppeteer.launch({
 });
 
 const page = await browser.newPage();
-await page.goto(url, { waitUntil: 'networkidle0', timeout: 120000 });
+await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 120000 });
 
-await page.waitForFunction(() => typeof window.__setTime === 'function' && typeof window.__TOTAL_DURATION__ === 'number');
+await page.waitForFunction(
+  () => typeof window.__setTime === 'function' && typeof window.__TOTAL_DURATION__ === 'number',
+  { timeout: 120000 }
+);
 const info = await page.evaluate(() => window.__renderInfo());
 const totalDuration = durationOverride || info.totalDuration || 300;
 const totalFrames = Math.ceil(totalDuration * fps);
